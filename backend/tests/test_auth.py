@@ -6,6 +6,8 @@ from app.services.auth import create_customer_token, digest_otp, normalize_phone
 def test_normalize_phone_accepts_turkish_international_format() -> None:
     assert normalize_phone("+90 555 123 45 67") == "+905551234567"
     assert normalize_phone("0090 555 123 45 67") == "+905551234567"
+    assert normalize_phone("0555 123 45 67") == "+905551234567"
+    assert normalize_phone("555 123 45 67") == "+905551234567"
 
 
 def test_normalize_phone_rejects_invalid_value() -> None:

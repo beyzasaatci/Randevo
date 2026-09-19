@@ -9,9 +9,17 @@ from app.core.config import get_settings
 
 
 def normalize_phone(phone_number: str) -> str:
-    digits = "".join(character for character in phone_number if character.isdigit() or character == "+")
-    if digits.startswith("00"):
-        digits = "+" + digits[2:]
+    compact = "".join(character for character in phone_number if character.isdigit())
+    if compact.startswith("00"):
+        compact = compact[2:]
+    if compact.startswith("90") and len(compact) == 12:
+        digits = "+" + compact
+    elif compact.startswith("0") and len(compact) == 11:
+        digits = "+90" + compact[1:]
+    elif compact.startswith("5") and len(compact) == 10:
+        digits = "+90" + compact
+    else:
+        digits = "+" + compact
     if not digits.startswith("+") or not digits[1:].isdigit() or not 8 <= len(digits[1:]) <= 15:
         raise ValueError("Geçerli bir telefon numarası girin.")
     return digits

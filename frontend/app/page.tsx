@@ -121,7 +121,7 @@ export default function Home() {
         {step === "phone" ? (
           <form onSubmit={submitPhone}>
             <label htmlFor="phone">Telefon numarası</label>
-            <input id="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="+90 5xx xxx xx xx" value={phone} onChange={(event) => setPhone(event.target.value)} required />
+            <input id="phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} required />
             <button type="submit" disabled={busy}>{busy ? "Gönderiliyor..." : "SMS kodu gönder"}</button>
           </form>
         ) : (
