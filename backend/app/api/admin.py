@@ -7,13 +7,17 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import delete, select
+from datetime import timedelta
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db import get_db
-from app.models import Appointment, Customer, Service
-from app.schemas_admin import AdminAppointmentResponse, AdminLogin, AdminLoginResponse, ServiceWrite
+from app.models import Appointment, AppointmentSource, AppointmentStatus, BlockedTime, Customer, Service, WorkingHour
+from app.schemas_admin import (AdminAppointmentResponse, AdminLogin, AdminLoginResponse, BlockedTimeWrite,
+                               ManualAppointmentCreate, ServiceWrite, WorkingHourWrite)
+from app.services.auth import normalize_phone
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -85,3 +89,81 @@ async def delete_service(service_id: UUID, request: Request, db: AsyncSession = 
     if service:
         service.active = False
         await db.commit()
+
+
+@router.put("/working-hours/{day_of_week}")
+async def set_working_hours(day_of_week: int, payload: WorkingHourWrite, request: Request, db: AsyncSession = Depends(get_db)) -> WorkingHour:
+    require_admin(request)
+    if day_of_week != payload.day_of_week or payload.start_time >= payload.end_time:
+        raise HTTPException(status_code=422, detail="Çalışma günü ve saat aralığı geçersiz.")
+    working_hour = await db.scalar(select(WorkingHour).where(WorkingHour.day_of_week == day_of_week).with_for_update())
+    if not working_hour:
+        working_hour = WorkingHour(day_of_week=day_of_week)
+        db.add(working_hour)
+    working_hour.start_time = payload.start_time
+    working_hour.end_time = payload.end_time
+    working_hour.active = payload.active
+    await db.commit()
+    await db.refresh(working_hour)
+    return working_hour
+
+
+@router.get("/working-hours")
+async def list_working_hours(request: Request, db: AsyncSession = Depends(get_db)) -> list[WorkingHour]:
+    require_admin(request)
+    result = await db.scalars(select(WorkingHour).order_by(WorkingHour.day_of_week))
+    return list(result)
+
+
+@router.post("/blocked-times", status_code=status.HTTP_201_CREATED)
+async def create_blocked_time(payload: BlockedTimeWrite, request: Request, db: AsyncSession = Depends(get_db)) -> BlockedTime:
+    require_admin(request)
+    if payload.start_time >= payload.end_time:
+        raise HTTPException(status_code=422, detail="Kapalı zaman aralığı geçersiz.")
+    blocked_time = BlockedTime(**payload.model_dump())
+    db.add(blocked_time)
+    await db.commit()
+    await db.refresh(blocked_time)
+    return blocked_time
+
+
+@router.delete("/blocked-times/{blocked_time_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_blocked_time(blocked_time_id: UUID, request: Request, db: AsyncSession = Depends(get_db)) -> None:
+    require_admin(request)
+    blocked_time = await db.get(BlockedTime, blocked_time_id)
+    if blocked_time:
+        await db.delete(blocked_time)
+        await db.commit()
+
+
+@router.post("/appointments", response_model=AdminAppointmentResponse, status_code=status.HTTP_201_CREATED)
+async def create_manual_appointment(payload: ManualAppointmentCreate, request: Request, db: AsyncSession = Depends(get_db)) -> AdminAppointmentResponse:
+    require_admin(request)
+    try:
+        phone_number = normalize_phone(payload.phone_number)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    service = await db.get(Service, payload.service_id)
+    if not service or not service.active or payload.start_at.tzinfo is None:
+        raise HTTPException(status_code=422, detail="Geçerli hizmet ve saat gerekli.")
+    start_at = payload.start_at.astimezone(timezone.utc)
+    end_at = start_at + timedelta(minutes=service.duration_minutes)
+    overlap = await db.scalar(select(Appointment.id).where(
+        Appointment.status != AppointmentStatus.CANCELLED,
+        Appointment.start_at < end_at,
+        Appointment.end_at > start_at,
+    ).with_for_update())
+    if overlap:
+        raise HTTPException(status_code=409, detail="Bu saat artık müsait değil.")
+    customer = await db.scalar(select(Customer).where(Customer.phone_number == phone_number).with_for_update())
+    if not customer:
+        customer = Customer(phone_number=phone_number, name=payload.customer_name.strip())
+        db.add(customer)
+        await db.flush()
+    else:
+        customer.name = payload.customer_name.strip()
+    appointment = Appointment(customer_id=customer.id, service_id=service.id, start_at=start_at, end_at=end_at, source=AppointmentSource.ADMIN)
+    db.add(appointment)
+    await db.commit()
+    await db.refresh(appointment)
+    return AdminAppointmentResponse(id=appointment.id, customer_name=customer.name, customer_phone=customer.phone_number, service_name=service.name, start_at=appointment.start_at, end_at=appointment.end_at, status=appointment.status.value)

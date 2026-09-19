@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from uuid import UUID
 
@@ -30,3 +30,24 @@ class AdminAppointmentResponse(BaseModel):
     start_at: datetime
     end_at: datetime
     status: str
+
+
+class WorkingHourWrite(BaseModel):
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: time
+    end_time: time
+    active: bool = True
+
+
+class BlockedTimeWrite(BaseModel):
+    date: date
+    start_time: time
+    end_time: time
+    reason: str | None = Field(default=None, max_length=255)
+
+
+class ManualAppointmentCreate(BaseModel):
+    phone_number: str = Field(min_length=8, max_length=20)
+    customer_name: str = Field(min_length=2, max_length=120)
+    service_id: UUID
+    start_at: datetime
