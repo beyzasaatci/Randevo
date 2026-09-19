@@ -109,14 +109,14 @@ export default function Home() {
     <main className="page-shell">
       <section className="hero" aria-labelledby="page-title">
         <div className="brand-mark" aria-label="Randevo">R</div>
-        <p className="eyebrow">Kişisel bakım, sizin zamanınızda</p>
-        <h1 id="page-title">İyi görünmek için<br /><em>beklemeyin.</em></h1>
-        <p className="intro">Uygun saati seçin, randevunuzu birkaç adımda oluşturun.</p>
-        <div className="actions"><a className="primary-action" href="#randevu">Randevu Al <span aria-hidden="true">→</span></a><a className="secondary-action" href="#randevularim">Randevularım</a></div>
-        <div className="availability-note"><span className="status-dot" /> Online randevu sistemi açık</div>
+        <p className="eyebrow">Berber randevunuzu kolayca alın</p>
+        <h1 id="page-title">Hazır olduğunuzda<br /><em>buradayız.</em></h1>
+        <p className="intro">Hizmetinizi ve size uygun saati seçin. Telefonla aramanıza gerek yok.</p>
+        <div className="actions"><a className="primary-action" href="#randevu">Randevu Al <span aria-hidden="true">↓</span></a><a className="secondary-action" href="#randevularim">Randevularım</a></div>
+        <div className="availability-note"><span className="status-dot" /> Her gün 09:00–21:00</div>
       </section>
       {!token ? <section className="auth-panel" id="randevu" aria-labelledby="auth-title">
-        <p className="section-kicker">Hızlı giriş</p>
+        <p className="section-kicker">01 · Giriş</p>
         <h2 id="auth-title">Telefonunuzla başlayın.</h2>
         {step === "phone" ? (
           <form onSubmit={submitPhone}>
@@ -135,24 +135,20 @@ export default function Home() {
         )}
         {error && <p className="form-error" role="alert">{error}</p>}
       </section> : requiresName ? <section className="auth-panel" id="randevu" aria-labelledby="profile-title">
-        <p className="section-kicker">Son bir adım</p>
+        <p className="section-kicker">02 · Profil</p>
         <h2 id="profile-title">Size nasıl hitap edelim?</h2>
         <form onSubmit={submitProfile}><label htmlFor="profile-name">Ad soyad</label><input id="profile-name" value={profileName} onChange={(event) => setProfileName(event.target.value)} autoComplete="name" required /><button type="submit" disabled={busy}>{busy ? "Kaydediliyor..." : "Devam et"}</button></form>
         {error && <p className="form-error" role="alert">{error}</p>}
       </section> : <section className="auth-panel" id="randevu" aria-labelledby="booking-title">
-        <p className="section-kicker">Randevu al</p>
+        <p className="section-kicker">03 · Randevu al</p>
         <h2 id="booking-title">Size uygun zamanı seçin.</h2>
-        <label htmlFor="service">Hizmet</label>
-        <select id="service" value={selectedService} onChange={(event) => setSelectedService(event.target.value)}>
-          <option value="">Hizmet seçin</option>
-          {services.map((service) => <option key={service.id} value={service.id}>{service.name} · {service.price} TL · {service.duration_minutes} dk</option>)}
-        </select>
-        <label htmlFor="date">Tarih</label>
-        <input id="date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} min={new Date().toISOString().slice(0, 10)} />
-        <button type="button" onClick={loadAvailability} disabled={!selectedService || !selectedDate || busy}>Uygun saatleri göster</button>
-        {slots.length > 0 && <div className="slot-grid">{slots.map((slot) => <button className="slot-button" key={slot.start_at} type="button" onClick={() => bookSlot(slot)} disabled={busy}>{new Date(slot.start_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</button>)}</div>}
-        {slots.length === 0 && selectedDate && <p className="form-hint">Bir tarih ve hizmet seçerek uygun saatleri görebilirsiniz.</p>}
-        <button className="text-button" type="button" onClick={loadAppointments}>Randevularımı göster</button>
+        <fieldset className="service-choices"><legend>Hizmet seçin</legend>{services.map((service) => <button className={`service-choice ${selectedService === service.id ? "selected" : ""}`} key={service.id} type="button" onClick={() => { setSelectedService(service.id); setSlots([]); }}><span><strong>{service.name}</strong><small>{service.duration_minutes} dakika</small></span><b>{service.price} TL</b></button>)}</fieldset>
+        <label htmlFor="date">Gün seçin</label>
+        <input id="date" className="date-input" type="date" value={selectedDate} onChange={(event) => { setSelectedDate(event.target.value); setSlots([]); }} min={new Date().toISOString().slice(0, 10)} />
+        <button className="full-action" type="button" onClick={loadAvailability} disabled={!selectedService || !selectedDate || busy}>Müsait saatleri göster</button>
+        {slots.length > 0 && <div className="slot-section"><p className="form-hint">Boş saatler</p><div className="slot-grid">{slots.map((slot) => <button className="slot-button" key={slot.start_at} type="button" onClick={() => bookSlot(slot)} disabled={busy}>{new Date(slot.start_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</button>)}</div></div>}
+        {slots.length === 0 && selectedDate && selectedService && <p className="form-hint">Müsait saatleri görmek için butona dokunun.</p>}
+        <button className="text-button" id="randevularim" type="button" onClick={loadAppointments}>Randevularımı göster</button>
         {appointments.length > 0 && <div className="appointment-list">{appointments.map((appointment) => <div className="appointment-item" key={appointment.id}><strong>{new Date(appointment.start_at).toLocaleString("tr-TR")}</strong><span>{appointment.status === "cancelled" ? "İptal edildi" : "Onaylandı"}</span></div>)}</div>}
         {message && <p className="form-hint" role="status">{message}</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
