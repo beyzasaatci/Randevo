@@ -59,7 +59,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)) -> lis
     return [AdminAppointmentResponse(id=appointment.id, customer_name=customer.name, customer_phone=customer.phone_number, service_name=service.name, start_at=appointment.start_at, end_at=appointment.end_at, status=appointment.status.value) for appointment, customer, service in result]
 
 
-@router.post("/services", status_code=status.HTTP_201_CREATED)
+@router.post("/services", response_model=None, status_code=status.HTTP_201_CREATED)
 async def create_service(payload: ServiceWrite, request: Request, db: AsyncSession = Depends(get_db)) -> Service:
     require_admin(request)
     service = Service(**payload.model_dump())
@@ -69,7 +69,7 @@ async def create_service(payload: ServiceWrite, request: Request, db: AsyncSessi
     return service
 
 
-@router.patch("/services/{service_id}")
+@router.patch("/services/{service_id}", response_model=None)
 async def update_service(service_id: UUID, payload: ServiceWrite, request: Request, db: AsyncSession = Depends(get_db)) -> Service:
     require_admin(request)
     service = await db.get(Service, service_id)
@@ -91,7 +91,7 @@ async def delete_service(service_id: UUID, request: Request, db: AsyncSession = 
         await db.commit()
 
 
-@router.put("/working-hours/{day_of_week}")
+@router.put("/working-hours/{day_of_week}", response_model=None)
 async def set_working_hours(day_of_week: int, payload: WorkingHourWrite, request: Request, db: AsyncSession = Depends(get_db)) -> WorkingHour:
     require_admin(request)
     if day_of_week != payload.day_of_week or payload.start_time >= payload.end_time:
@@ -108,14 +108,14 @@ async def set_working_hours(day_of_week: int, payload: WorkingHourWrite, request
     return working_hour
 
 
-@router.get("/working-hours")
+@router.get("/working-hours", response_model=None)
 async def list_working_hours(request: Request, db: AsyncSession = Depends(get_db)) -> list[WorkingHour]:
     require_admin(request)
     result = await db.scalars(select(WorkingHour).order_by(WorkingHour.day_of_week))
     return list(result)
 
 
-@router.post("/blocked-times", status_code=status.HTTP_201_CREATED)
+@router.post("/blocked-times", response_model=None, status_code=status.HTTP_201_CREATED)
 async def create_blocked_time(payload: BlockedTimeWrite, request: Request, db: AsyncSession = Depends(get_db)) -> BlockedTime:
     require_admin(request)
     if payload.start_time >= payload.end_time:
@@ -127,7 +127,7 @@ async def create_blocked_time(payload: BlockedTimeWrite, request: Request, db: A
     return blocked_time
 
 
-@router.get("/blocked-times")
+@router.get("/blocked-times", response_model=None)
 async def list_blocked_times(request: Request, db: AsyncSession = Depends(get_db)) -> list[BlockedTime]:
     require_admin(request)
     result = await db.scalars(select(BlockedTime).order_by(BlockedTime.date, BlockedTime.start_time))
