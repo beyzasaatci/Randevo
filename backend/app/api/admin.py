@@ -3,11 +3,10 @@ import hashlib
 import hmac
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +17,7 @@ from app.models import Appointment, AppointmentSource, AppointmentStatus, Blocke
 from app.schemas_admin import (AdminAppointmentResponse, AdminAppointmentUpdate, AdminLogin, AdminLoginResponse,
                                BlockedTimeWrite, ManualAppointmentCreate, ServiceWrite, WorkingHourWrite)
 from app.services.auth import normalize_phone
+from app.services.booking import is_valid_booking_window
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -127,6 +127,13 @@ async def create_blocked_time(payload: BlockedTimeWrite, request: Request, db: A
     return blocked_time
 
 
+@router.get("/blocked-times")
+async def list_blocked_times(request: Request, db: AsyncSession = Depends(get_db)) -> list[BlockedTime]:
+    require_admin(request)
+    result = await db.scalars(select(BlockedTime).order_by(BlockedTime.date, BlockedTime.start_time))
+    return list(result)
+
+
 @router.delete("/blocked-times/{blocked_time_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_blocked_time(blocked_time_id: UUID, request: Request, db: AsyncSession = Depends(get_db)) -> None:
     require_admin(request)
@@ -148,6 +155,8 @@ async def create_manual_appointment(payload: ManualAppointmentCreate, request: R
         raise HTTPException(status_code=422, detail="Geçerli hizmet ve saat gerekli.")
     start_at = payload.start_at.astimezone(timezone.utc)
     end_at = start_at + timedelta(minutes=service.duration_minutes)
+    if start_at <= datetime.now(timezone.utc) or not await is_valid_booking_window(db, start_at, end_at):
+        raise HTTPException(status_code=422, detail="Seçilen saat çalışma saatleri içinde veya uygun değil.")
     overlap = await db.scalar(select(Appointment.id).where(
         Appointment.status != AppointmentStatus.CANCELLED,
         Appointment.start_at < end_at,
@@ -180,6 +189,8 @@ async def update_admin_appointment(appointment_id: UUID, payload: AdminAppointme
         raise HTTPException(status_code=422, detail="Geçerli hizmet ve saat gerekli.")
     start_at = payload.start_at.astimezone(timezone.utc)
     end_at = start_at + timedelta(minutes=service.duration_minutes)
+    if start_at <= datetime.now(timezone.utc) or not await is_valid_booking_window(db, start_at, end_at):
+        raise HTTPException(status_code=422, detail="Seçilen saat çalışma saatleri içinde veya uygun değil.")
     overlap = await db.scalar(select(Appointment.id).where(
         Appointment.id != appointment.id,
         Appointment.status != AppointmentStatus.CANCELLED,

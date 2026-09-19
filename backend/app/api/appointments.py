@@ -10,6 +10,7 @@ from app.db import get_db
 from app.models import Appointment, AppointmentStatus, Customer, Service
 from app.schemas_appointments import AppointmentCreate, AppointmentResponse
 from app.services.auth import verify_customer_token
+from app.services.booking import is_valid_booking_window
 
 router = APIRouter(prefix="/api/v1/appointments", tags=["appointments"])
 
@@ -40,6 +41,8 @@ async def create_appointment(payload: AppointmentCreate, request: Request, db: A
     if start_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=422, detail="Geçmiş bir saate randevu alınamaz.")
     end_at = start_at + timedelta(minutes=service.duration_minutes)
+    if not await is_valid_booking_window(db, start_at, end_at):
+        raise HTTPException(status_code=422, detail="Seçilen saat çalışma saatleri içinde veya uygun değil.")
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": start_at.isoformat()[:16]})
     overlap = await db.scalar(select(Appointment.id).where(
         Appointment.status != AppointmentStatus.CANCELLED,
@@ -93,6 +96,8 @@ async def reschedule_appointment(appointment_id: UUID, payload: AppointmentCreat
         raise HTTPException(status_code=422, detail="Geçerli hizmet ve timezone içeren saat gerekli.")
     start_at = payload.start_at.astimezone(timezone.utc)
     end_at = start_at + timedelta(minutes=service.duration_minutes)
+    if start_at <= datetime.now(timezone.utc) or not await is_valid_booking_window(db, start_at, end_at):
+        raise HTTPException(status_code=422, detail="Seçilen saat çalışma saatleri içinde veya uygun değil.")
     overlap = await db.scalar(select(Appointment.id).where(
         Appointment.id != appointment.id,
         Appointment.status != AppointmentStatus.CANCELLED,
