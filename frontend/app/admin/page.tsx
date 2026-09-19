@@ -67,8 +67,13 @@ export default function AdminPage() {
 
   async function createManual(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch(`${apiUrl}/api/v1/admin/appointments`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...manual, start_at: new Date(manual.start_at).toISOString() }) });
-    if (response.ok) { setManual({ phone_number: "", customer_name: "", service_id: "", start_at: "" }); await loadData(); } else { const data = await response.json(); setError(data.detail ?? "Randevu oluşturulamadı."); }
+    setError("");
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/admin/appointments`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...manual, start_at: new Date(manual.start_at).toISOString() }) });
+      if (response.ok) { setManual({ phone_number: "", customer_name: "", service_id: "", start_at: "" }); await loadData(); } else { const data = await response.json(); setError(data.detail ?? "Randevu oluşturulamadı."); }
+    } catch {
+      setError("Sunucuya bağlanılamadı. Backend'in çalıştığından emin olun.");
+    }
   }
 
   async function saveService(event: FormEvent<HTMLFormElement>) {
