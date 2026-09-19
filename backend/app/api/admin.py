@@ -15,8 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db import get_db
 from app.models import Appointment, AppointmentSource, AppointmentStatus, BlockedTime, Customer, Service, WorkingHour
-from app.schemas_admin import (AdminAppointmentResponse, AdminLogin, AdminLoginResponse, BlockedTimeWrite,
-                               ManualAppointmentCreate, ServiceWrite, WorkingHourWrite)
+from app.schemas_admin import (AdminAppointmentResponse, AdminAppointmentUpdate, AdminLogin, AdminLoginResponse,
+                               BlockedTimeWrite, ManualAppointmentCreate, ServiceWrite, WorkingHourWrite)
 from app.services.auth import normalize_phone
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -167,3 +167,44 @@ async def create_manual_appointment(payload: ManualAppointmentCreate, request: R
     await db.commit()
     await db.refresh(appointment)
     return AdminAppointmentResponse(id=appointment.id, customer_name=customer.name, customer_phone=customer.phone_number, service_name=service.name, start_at=appointment.start_at, end_at=appointment.end_at, status=appointment.status.value)
+
+
+@router.patch("/appointments/{appointment_id}", response_model=AdminAppointmentResponse)
+async def update_admin_appointment(appointment_id: UUID, payload: AdminAppointmentUpdate, request: Request, db: AsyncSession = Depends(get_db)) -> AdminAppointmentResponse:
+    require_admin(request)
+    appointment = await db.scalar(select(Appointment).where(Appointment.id == appointment_id).with_for_update())
+    service = await db.get(Service, payload.service_id)
+    if not appointment or appointment.status == AppointmentStatus.CANCELLED:
+        raise HTTPException(status_code=404, detail="Randevu bulunamadı.")
+    if not service or not service.active or payload.start_at.tzinfo is None:
+        raise HTTPException(status_code=422, detail="Geçerli hizmet ve saat gerekli.")
+    start_at = payload.start_at.astimezone(timezone.utc)
+    end_at = start_at + timedelta(minutes=service.duration_minutes)
+    overlap = await db.scalar(select(Appointment.id).where(
+        Appointment.id != appointment.id,
+        Appointment.status != AppointmentStatus.CANCELLED,
+        Appointment.start_at < end_at,
+        Appointment.end_at > start_at,
+    ).with_for_update())
+    if overlap:
+        raise HTTPException(status_code=409, detail="Bu saat artık müsait değil.")
+    appointment.service_id = service.id
+    appointment.start_at = start_at
+    appointment.end_at = end_at
+    await db.commit()
+    await db.refresh(appointment)
+    customer = await db.get(Customer, appointment.customer_id)
+    return AdminAppointmentResponse(id=appointment.id, customer_name=customer.name if customer else None, customer_phone=customer.phone_number if customer else "", service_name=service.name, start_at=appointment.start_at, end_at=appointment.end_at, status=appointment.status.value)
+
+
+@router.delete("/appointments/{appointment_id}", response_model=AdminAppointmentResponse)
+async def cancel_admin_appointment(appointment_id: UUID, request: Request, db: AsyncSession = Depends(get_db)) -> AdminAppointmentResponse:
+    require_admin(request)
+    appointment = await db.scalar(select(Appointment).where(Appointment.id == appointment_id).with_for_update())
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Randevu bulunamadı.")
+    appointment.status = AppointmentStatus.CANCELLED
+    await db.commit()
+    customer = await db.get(Customer, appointment.customer_id)
+    service = await db.get(Service, appointment.service_id)
+    return AdminAppointmentResponse(id=appointment.id, customer_name=customer.name if customer else None, customer_phone=customer.phone_number if customer else "", service_name=service.name if service else "", start_at=appointment.start_at, end_at=appointment.end_at, status=appointment.status.value)

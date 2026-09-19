@@ -51,3 +51,8 @@ class ManualAppointmentCreate(BaseModel):
     customer_name: str = Field(min_length=2, max_length=120)
     service_id: UUID
     start_at: datetime
+
+
+class AdminAppointmentUpdate(BaseModel):
+    service_id: UUID
+    start_at: datetime
