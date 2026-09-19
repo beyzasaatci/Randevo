@@ -35,7 +35,7 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail ?? "Kod gönderilemedi.");
-      setMessage(data.message);
+      setMessage(data.development_code ? `${data.message} Kod: ${data.development_code}` : data.message);
       setStep("otp");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Bir hata oluştu.");

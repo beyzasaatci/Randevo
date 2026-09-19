@@ -8,6 +8,7 @@ class OtpRequest(BaseModel):
 class OtpRequestResponse(BaseModel):
     message: str
     retry_after_seconds: int
+    development_code: str | None = None
 
 
 class OtpVerify(BaseModel):

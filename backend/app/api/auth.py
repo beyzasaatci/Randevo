@@ -41,7 +41,11 @@ async def request_otp(payload: OtpRequest, request: Request, db: AsyncSession = 
     db.add(otp)
     await db.commit()
     await sms_service.send_otp(phone_number, code)
-    return OtpRequestResponse(message="Doğrulama kodu gönderildi.", retry_after_seconds=60)
+    return OtpRequestResponse(
+        message="Doğrulama kodu gönderildi.",
+        retry_after_seconds=60,
+        development_code=code if get_settings().environment == "development" else None,
+    )
 
 
 @router.post("/verify-otp", response_model=OtpVerifyResponse)
