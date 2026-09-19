@@ -24,12 +24,12 @@ async def seed_development_data() -> None:
                 Service(name="Sakal Tıraşı", duration_minutes=20, price=300, active=True),
                 Service(name="Saç + Sakal", duration_minutes=50, price=750, active=True),
             ])
-        has_hours = await session.scalar(select(WorkingHour.id).limit(1))
-        if not has_hours:
-            session.add_all([
-                WorkingHour(day_of_week=day, start_time=time(9), end_time=time(20), active=True)
-                for day in range(6)
-            ])
+        existing_hours = {item.day_of_week: item for item in await session.scalars(select(WorkingHour))}
+        for day in range(6):
+            working_hour = existing_hours.get(day)
+            if not working_hour:
+                working_hour = WorkingHour(day_of_week=day, start_time=time(9), end_time=time(21), active=True)
+                session.add(working_hour)
         await session.commit()
 
 settings = get_settings()
