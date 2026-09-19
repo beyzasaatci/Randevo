@@ -59,6 +59,15 @@ app.include_router(appointments_router)
 app.include_router(admin_router)
 
 
+@app.get("/", tags=["system"])
+async def root() -> dict[str, str]:
+    return {
+        "message": "Randevo API çalışıyor.",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health", tags=["system"])
 async def health() -> dict[str, str]:
     return {"status": "ok", "environment": settings.environment}
