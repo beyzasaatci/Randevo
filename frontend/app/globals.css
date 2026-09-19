@@ -38,6 +38,16 @@ h1 em { color: #6a7e31; font-style: italic; }
 .admin-shell { min-height: 100svh; padding: 32px 20px; background: var(--paper); }
 .admin-content { max-width: 860px; margin: 0 auto; padding-top: 8vh; }
 .admin-content h1, .admin-shell h1 { margin: 0 0 32px; font-size: clamp(3rem, 8vw, 6rem); font-weight: 400; letter-spacing: -.06em; }
+.admin-content h2 { margin: 0 0 18px; font-size: 1.8rem; font-weight: 400; }
+.admin-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px; }
+.admin-card { padding: 24px 0; border-top: 1px solid var(--line); }
+.admin-card form { display: grid; gap: 10px; }
+.admin-card input, .admin-card select { width: 100%; padding: 13px; border: 1px solid var(--line); background: rgba(255,255,255,.38); font: .9rem Arial, sans-serif; }
+.admin-card button { padding: 13px; border: 0; background: var(--ink); color: var(--paper); cursor: pointer; font: 600 .8rem Arial, sans-serif; }
+.toggle-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--line); font: .9rem Arial, sans-serif; }
+.toggle-row small { display: block; margin-top: 4px; color: var(--muted); }
+.two-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 700px) { .admin-columns { grid-template-columns: 1fr; gap: 20px; } }
 .service-preview h2 { margin: 0; font-size: clamp(2rem, 5vw, 4rem); font-weight: 400; letter-spacing: -.04em; }
 .service-preview > p:last-child { max-width: 280px; margin: 8px 0; color: var(--muted); font-size: 1.05rem; line-height: 1.5; }
 @media (max-width: 600px) { .hero, .service-preview { padding-left: 20px; padding-right: 20px; } .hero { min-height: 82svh; } .brand-mark { margin-bottom: 5rem; } .actions { align-items: flex-start; flex-direction: column; gap: 16px; } .service-preview { grid-template-columns: 1fr; gap: 10px; } }
